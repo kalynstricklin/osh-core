@@ -320,7 +320,7 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         header.setComponentAlignment(img, Alignment.MIDDLE_LEFT);
         
         // title
-        Label title = new Label("OpenSensorHub");
+        Label title = new Label("OpenKalynHub");
         //title.addStyleName(STYLE_H2);
         title.addStyleName(STYLE_LOGO);
         //title.setWidth(null);
@@ -340,7 +340,7 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
             {
                 String version = ModuleUtils.getModuleInfo(getClass()).getModuleVersion();
                 String buildNumber = ModuleUtils.getBuildNumber(getClass());
-                Window popup = new Window("<b>About OpenSensorHub</b>");
+                Window popup = new Window("<b>About OpenKalynHub</b>");
                 popup.setIcon(LOGO_ICON);
                 popup.setCaptionAsHtml(true);
                 popup.setModal(true);
