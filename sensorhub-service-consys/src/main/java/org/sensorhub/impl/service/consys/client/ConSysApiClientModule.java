@@ -1,11 +1,19 @@
 package org.sensorhub.impl.service.consys.client;
 
 import com.google.common.base.Strings;
+import com.google.common.net.HttpHeaders;
+
 import org.sensorhub.api.client.ClientException;
 import org.sensorhub.api.client.IClientModule;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.SensorHubException;
-import org.sensorhub.api.data.*;
+import org.sensorhub.api.data.DataStreamAddedEvent;
+import org.sensorhub.api.data.DataStreamDisabledEvent;
+import org.sensorhub.api.data.DataStreamEnabledEvent;
+import org.sensorhub.api.data.DataStreamEvent;
+import org.sensorhub.api.data.DataStreamRemovedEvent;
+import org.sensorhub.api.data.IDataStreamInfo;
+import org.sensorhub.api.data.ObsEvent;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
 import org.sensorhub.api.datastore.obs.ObsFilter;
@@ -14,23 +22,28 @@ import org.sensorhub.api.event.EventUtils;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.api.system.SystemAddedEvent;
 import org.sensorhub.api.system.SystemChangedEvent;
-import org.sensorhub.api.system.SystemEnabledEvent;
-import org.sensorhub.api.system.SystemRemovedEvent;
 import org.sensorhub.api.system.SystemDisabledEvent;
+import org.sensorhub.api.system.SystemEnabledEvent;
 import org.sensorhub.api.system.SystemEvent;
+import org.sensorhub.api.system.SystemRemovedEvent;
 import org.sensorhub.impl.module.AbstractModule;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
-import org.vast.util.Asserts;
 
-import java.net.Authenticator;
-import java.net.HttpURLConnection;
-import java.net.PasswordAuthentication;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
-import java.util.concurrent.CompletableFuture;
+
+import okhttp3.Credentials;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig> implements IClientModule<ConSysApiClientConfig> {
 
@@ -99,21 +112,48 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     @Override
     protected void doStart() throws SensorHubException {
         // Check if endpoint is available
-        try{
-            HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
+
+        OkHttpClient client = new OkHttpClient.Builder().authenticator((route, response) -> {
             if (!Strings.isNullOrEmpty(config.conSys.user)) {
-                urlConnection.setAuthenticator(new Authenticator() {
-                    @Override
-                    public PasswordAuthentication getPasswordAuthentication() {
-                        return new PasswordAuthentication(config.conSys.user, config.conSys.password != null ? config.conSys.password.toCharArray() : new char[0]);
-                    }
-                });
+                String credential = Credentials.basic(config.conSys.user, config.conSys.password != null ? config.conSys.password : "");
+                return response.request().newBuilder()
+                        .header(HttpHeaders.AUTHORIZATION, credential)
+                        .build();
             }
-            urlConnection.connect();
-            Asserts.checkArgument(urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK);
+            return  null;
+
+        }).build();
+
+        Request request = new Request.Builder()
+                .url(apiEndpointUrl)
+                .get()
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new SensorHubException("Failed to establish connection: HTTP " + response.code());
+            }
         } catch (Exception e) {
-            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint");
+            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint", e);
         }
+
+
+
+//        try{
+//            HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
+//            if (!Strings.isNullOrEmpty(config.conSys.user)) {
+//                urlConnection.setAuthenticator(new Authenticator() {
+//                    @Override
+//                    public PasswordAuthentication getPasswordAuthentication() {
+//                        return new PasswordAuthentication(config.conSys.user, config.conSys.password != null ? config.conSys.password.toCharArray() : new char[0]);
+//                    }
+//                });
+//            }
+//            urlConnection.connect();
+//            Asserts.checkArgument(urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK);
+//        } catch (Exception e) {
+//            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint");
+//        }
 
         reportStatus("Connection to " + apiEndpointUrl + " was made successfully");
 

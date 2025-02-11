@@ -14,11 +14,9 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.service.consys;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.HashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
+
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.procedure.ProcedureFilter;
@@ -52,8 +50,12 @@ import org.sensorhub.impl.service.consys.task.CommandStatusHandler;
 import org.sensorhub.impl.service.consys.task.CommandStreamHandler;
 import org.sensorhub.impl.service.consys.task.CommandStreamSchemaHandler;
 import org.sensorhub.utils.NamedThreadFactory;
-import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableSet;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 
 /**
@@ -182,7 +184,7 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
                 reportError("Error while initializing custom format for " + formatConfig.mimeType, e);
             }
         }
-        
+
         // create obs db read/write wrapper
         var db = new ObsSystemDbWrapper(readDb, writeDb, getParentHub().getIdEncoders());
         var eventBus = getParentHub().getEventBus();
