@@ -64,6 +64,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
     public static class StreamInfo
     {
+        public long lastEventTime = Long.MIN_VALUE;
+        public int measPeriodMs = 1000;
+        public int errorCount = 0;
         private IDataStreamInfo dataStream;
         private String dataStreamID;
         private String topicID;
@@ -421,6 +424,8 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         var length = e.getObservations().length;
         for(var obs : e.getObservations())
             client.pushObs(streamInfo.dataStreamID, streamInfo.dataStream, obs, this.dataBaseView.getObservationStore());
+
+        streamInfo.lastEventTime = e.getTimeStamp();
     }
 
     protected void handleEvent(final SystemEvent e)
@@ -501,4 +506,8 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         }
     }
 
+    public Map<String, StreamInfo> getDataStreams()
+    {
+        return dataStreams;
+    }
 }
