@@ -51,6 +51,8 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
     public static class StreamInfo
     {
+        public long lastEventTime = Long.MIN_VALUE;
+        public int measPeriodMs = 1000;
         private IDataStreamInfo dataStream;
         private String dataStreamID;
         private String topicID;
@@ -99,20 +101,28 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     @Override
     protected void doStart() throws SensorHubException {
         // Check if endpoint is available
-        try{
-            HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
+        OkHttpClient client = new OkHttpClient.Builder().authenticator((route, response) -> {
             if (!Strings.isNullOrEmpty(config.conSys.user)) {
-                urlConnection.setAuthenticator(new Authenticator() {
-                    @Override
-                    public PasswordAuthentication getPasswordAuthentication() {
-                        return new PasswordAuthentication(config.conSys.user, config.conSys.password != null ? config.conSys.password.toCharArray() : new char[0]);
-                    }
-                });
+                String credential = Credentials.basic(config.conSys.user, config.conSys.password != null ? config.conSys.password : "");
+                return response.request().newBuilder()
+                        .header(HttpHeaders.AUTHORIZATION, credential)
+                        .build();
             }
-            urlConnection.connect();
-            Asserts.checkArgument(urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK);
+            return  null;
+
+        }).build();
+
+        Request request = new Request.Builder()
+                .url(apiEndpointUrl)
+                .get()
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new SensorHubException("Failed to establish connection: HTTP " + response.code());
+            }
         } catch (Exception e) {
-            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint");
+            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint", e);
         }
 
         reportStatus("Connection to " + apiEndpointUrl + " was made successfully");
@@ -459,6 +469,11 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 disableDataStream(sysUID, outputName, true);
             });
         }
+    }
+
+    public Map<String, StreamInfo> getDataStreams()
+    {
+        return dataStreams;
     }
 
 }

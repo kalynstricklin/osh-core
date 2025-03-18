@@ -773,119 +773,272 @@ public class ConSysApiClient
     /* Helper Methods */
     /*----------------*/
 
+
     protected <T> CompletableFuture<T> sendGetRequest(URI collectionUri, ResourceFormat format, Function<InputStream, T> bodyMapper)
     {
-        var req = HttpRequest.newBuilder()
-            .uri(collectionUri)
-            .GET()
-            .header(HttpHeaders.ACCEPT, format.getMimeType())
-            .build();
-
-        var bodyHandler = new BodyHandler<T>() {
-            @Override
-            public BodySubscriber<T> apply(ResponseInfo resp)
-            {
-                //var upstream = BodySubscribers.ofInputStream();
-                var upstream = BodySubscribers.ofByteArray();
-                return BodySubscribers.mapping(upstream, body -> {
-                    log.debug("GET response\n{}", new String(body));
-                    var is = new ByteArrayInputStream(body);
-                    return bodyMapper.apply(is);
-                });
-            }
-        };
-
-        return http.sendAsync(req, bodyHandler)
-            .thenApply(resp ->  {
-                if (resp.statusCode() == 200)
-                    return resp.body();
-                else
-                    throw new CompletionException("HTTP error " + resp.statusCode(), null);
-            });
-    }
-
-    protected CompletableFuture<String> sendPostRequest(URI collectionUri, ResourceFormat format, byte[] body)
-    {
-        var req = HttpRequest.newBuilder()
-            .uri(collectionUri)
-            .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-            .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-            .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-            .build();
-
-        return http.sendAsync(req, BodyHandlers.ofString())
-            .thenApply(resp ->  {
-                if (resp.statusCode() == 201 || resp.statusCode() == 303)
-                {
-                    var location = resp.headers()
-                        .firstValue(HttpHeaders.LOCATION)
-                        .orElseThrow(() -> new IllegalStateException("Missing Location header in response"));
-                    return location.substring(location.lastIndexOf('/')+1);
-                }
-                else
-                    throw new CompletionException(resp.body(), null);
-            });
-    }
-
-    protected CompletableFuture<Integer> sendPutRequest(URI collectionUri, ResourceFormat format, byte[] body)
-    {
-        var req = HttpRequest.newBuilder()
-                .uri(collectionUri)
-                .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
-                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+        CompletableFuture<T> future = new CompletableFuture<>();
+        Request request = new Request.Builder()
+                .url(collectionUri.toString())
+                .get()
+                .addHeader("Accept", format.getMimeType())
                 .build();
 
-        return http.sendAsync(req, BodyHandlers.ofString())
-                .thenApply(HttpResponse::statusCode);
-    }
+        http.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NotNull Call call, @NotNull IOException e) {
+                future.completeExceptionally(e);
+            }
 
+            @Override
+            public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
 
-    protected CompletableFuture<Set<String>> sendBatchPostRequest(URI collectionUri, ResourceFormat format, byte[] body)
-    {
-        var req = HttpRequest.newBuilder()
-            .uri(collectionUri)
-            .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-            .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-            .build();
+                if(response.isSuccessful() && response.body() != null){
+                    byte[] responseBytes = response.body().bytes();
+                    System.out.println(new String(responseBytes));
 
-        return http.sendAsync(req, BodyHandlers.ofString())
-            .thenApply(Lambdas.checked(resp ->  {
-                if (resp.statusCode() == 201 || resp.statusCode() == 303)
-                {
-                    var idList = new LinkedHashSet<String>();
-                    try (JsonReader reader = new JsonReader(new StringReader(resp.body())))
-                    {
-                        reader.beginArray();
-                        while (reader.hasNext())
-                        {
-                            var uri = reader.nextString();
-                            idList.add(uri.substring(uri.lastIndexOf('/')+1));
-                        }
-                        reader.endArray();
+                    try (InputStream inputStream = new ByteArrayInputStream(responseBytes)) {
+                        future.complete(bodyMapper.apply(inputStream));
                     }
-                    return idList;
+                }else {
+                    future.completeExceptionally(new IOException("HTTP error " + response.code() + ": " + response.message()));
                 }
-                else
-                    throw new ResourceParseException(resp.body());
-            }));
+            }
+        });
+
+        return future;
+
+//        var req = HttpRequest.newBuilder()
+//            .uri(collectionUri)
+//            .GET()
+//            .header(HttpHeaders.ACCEPT, format.getMimeType())
+//            .build();
+//
+//        var bodyHandler = new HttpResponse.BodyHandler<T>() {
+//            @Override
+//            public HttpResponse.BodySubscriber<T> apply(HttpResponse.ResponseInfo resp)
+//            {
+//                //var upstream = BodySubscribers.ofInputStream();
+//                var upstream = HttpResponse.BodySubscribers.ofByteArray();
+//                return HttpResponse.BodySubscribers.mapping(upstream, body -> {
+//                    System.out.println(new String(body));
+//                    var is = new ByteArrayInputStream(body);
+//                    return bodyMapper.apply(is);
+//                });
+//            }
+//        };
+//
+//        return http.sendAsync(req, bodyHandler)
+//            .thenApply(resp ->  {
+//                if (resp.statusCode() == 200)
+//                    return resp.body();
+//                else
+//                    throw new CompletionException("HTTP error " + resp.statusCode(), null);
+//            });
     }
-    
-    
-    protected void skipToCollectionItems(JsonReader reader) throws IOException
+
+
+    protected CompletableFuture<String> sendPostRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
     {
-        // skip to array of collection items
-        reader.beginObject();
-        while (reader.hasNext())
-        {
-            var name = reader.nextName();
-            if ("items".equals(name) || "features".equals(name))
-                break;
-            else
-                reader.skipValue();
+
+        CompletableFuture<String> future = new CompletableFuture<>();
+
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try {
+            body.getAsInputStream().transferTo(outputStream);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
+        RequestBody requestBody = RequestBody.create(outputStream.toByteArray(), okhttp3.MediaType.parse(format.getMimeType()));
+//        RequestBody requestBody = RequestBody.create(body.getAsInputStream().readAllBytes(), format.getMimeType());
+
+        Request request = new Request.Builder()
+                .url(collectionUri.toString())
+                .post(requestBody)
+                .addHeader(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+                .addHeader(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+                .build();
+
+        http.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NotNull Call call, @NotNull IOException e) {
+                future.completeExceptionally(e);
+            }
+
+            @Override
+            public void onResponse(@NotNull Call call, @NotNull Response response) {
+                try (ResponseBody responseBody = response.body()) {
+                    if (response.code() == 201 || response.code() == 303) {
+                        String location = response.header("Location");
+                        if (location == null) {
+                            future.completeExceptionally(new IllegalStateException("Missing Location header in response"));
+                            return;
+                        }
+                        future.complete(location.substring(location.lastIndexOf('/') + 1));
+                    } else {
+                        future.completeExceptionally(new CompletionException("HTTP Error: " + response.code() + " " + response.message(), null));
+                    }
+                }
+            }
+        });
+
+        return future;
+
+//        var req = HttpRequest.newBuilder()
+//            .uri(collectionUri)
+//            .POST(HttpRequest.BodyPublishers.ofInputStream(body::getAsInputStream))
+//            .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+//            .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+//            .build();
+//
+//        return http.sendAsync(req, BodyHandlers.ofString())
+//            .thenApply(resp ->  {
+//                if (resp.statusCode() == 201 || resp.statusCode() == 303)
+//                {
+//                    var location = resp.headers()
+//                        .firstValue(HttpHeaders.LOCATION)
+//                        .orElseThrow(() -> new IllegalStateException("Missing Location header in response"));
+//                    return location.substring(location.lastIndexOf('/')+1);
+//                }
+//                else
+//                    throw new CompletionException(resp.body(), null);
+//            });
     }
-    
+
+    protected CompletableFuture<Integer> sendPutRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
+    {
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try {
+            body.getAsInputStream().transferTo(outputStream);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        RequestBody requestBody = RequestBody.create(outputStream.toByteArray(), okhttp3.MediaType.parse(format.getMimeType()));
+//        RequestBody requestBody = RequestBody.create(MediaType.parse(format.getMimeType()), body.getAsInputStream().readAllBytes());
+
+        Request request = new Request.Builder()
+                .url(collectionUri.toString())
+                .put(requestBody)
+                .addHeader(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+                .addHeader(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+                .build();
+
+        http.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NotNull Call call, @NotNull IOException e) {
+                future.completeExceptionally(e);
+            }
+
+            @Override
+            public void onResponse(@NotNull Call call, @NotNull Response response) {
+                future.complete(response.code());
+                response.close();
+            }
+        });
+
+        return future;
+
+//        var req = HttpRequest.newBuilder()
+//                .uri(collectionUri)
+//                .PUT(HttpRequest.BodyPublishers.ofInputStream(() -> body.getAsInputStream()))
+//                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+//                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+//                .build();
+//
+//        return http.sendAsync(req, BodyHandlers.ofString())
+//                .thenApply(HttpResponse::statusCode);
+    }
+
+
+    protected CompletableFuture<Set<String>> sendBatchPostRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
+    {
+        CompletableFuture<Set<String>> future = new CompletableFuture<>();
+
+
+        //reformat body for post request by converting to bytearray
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try {
+            body.getAsInputStream().transferTo(outputStream);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        RequestBody requestBody = RequestBody.create(outputStream.toByteArray(), okhttp3.MediaType.parse(format.getMimeType()));
+
+        Request request = new Request.Builder()
+                .url(collectionUri.toString())
+                .post(requestBody)
+                .addHeader(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+                .addHeader(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+                .build();
+
+        http.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NotNull Call call, @NotNull IOException e) {
+                future.completeExceptionally(e);
+            }
+
+            @Override
+            public void onResponse(@NotNull Call call, @NotNull Response response) {
+                try (ResponseBody responseBody = response.body()) {
+                    if (response.code() == 201 || response.code() == 303) {
+                        Set<String> idList = new LinkedHashSet<>();
+
+                        if(responseBody != null){
+                            String responseString = responseBody.toString();
+
+                            try(JsonReader reader = new JsonReader(new StringReader(responseString)))
+                            {
+                                reader.beginArray();;
+                                while(reader.hasNext()){
+                                    var uri = reader.nextString();
+                                    idList.add(uri.substring(uri.lastIndexOf('/'+1)));
+                                }
+                                reader.endArray();
+                            }catch(IOException e){
+                                future.completeExceptionally(e);
+                            }
+                        }
+                        future.complete(idList);
+
+                    } else {
+                        future.completeExceptionally(new CompletionException("HTTP Error: " + response.code() + " " + response.message(), null));
+                    }
+                }
+            }
+        });
+
+        return future;
+
+
+//        var req = HttpRequest.newBuilder()
+//            .uri(collectionUri)
+//            .POST(HttpRequest.BodyPublishers.ofInputStream(() -> body.getAsInputStream()))
+//            .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+//            .build();
+//
+//        return http.sendAsync(req, BodyHandlers.ofString())
+//            .thenApply(Lambdas.checked(resp ->  {
+//                if (resp.statusCode() == 201 || resp.statusCode() == 303)
+//                {
+//                    var idList = new LinkedHashSet<String>();
+//                    try (JsonReader reader = new JsonReader(new StringReader(resp.body())))
+//                    {
+//                        reader.beginArray();
+//                        while (reader.hasNext())
+//                        {
+//                            var uri = reader.nextString();
+//                            idList.add(uri.substring(uri.lastIndexOf('/')+1));
+//                        }
+//                        reader.endArray();
+//                    }
+//                    return idList;
+//                }
+//                else
+//                    throw new ResourceParseException(resp.body());
+//            }));
+    }
 
 
     /* Builder stuff */
@@ -899,13 +1052,15 @@ public class ConSysApiClient
 
     public static class ConSysApiClientBuilder extends BaseBuilder<ConSysApiClient>
     {
-        HttpClient.Builder httpClientBuilder;
+        //        HttpClient.Builder httpClientBuilder;
+        OkHttpClient.Builder httpClientBuilder;
 
 
         ConSysApiClientBuilder(String endpoint)
         {
             this.instance = new ConSysApiClient();
-            this.httpClientBuilder = HttpClient.newBuilder();
+//            this.httpClientBuilder = HttpClient.newBuilder();
+            this.httpClientBuilder = new OkHttpClient.Builder();
 
             try
             {
@@ -919,25 +1074,41 @@ public class ConSysApiClient
             }
         }
 
-
-        public ConSysApiClientBuilder useHttpClient(HttpClient http)
+        public ConSysApiClientBuilder useHttpClient(OkHttpClient http)
         {
             instance.http = http;
             return this;
         }
 
 
+//        public ConSysApiClientBuilder useHttpClient(HttpClient http)
+//        {
+//            instance.http = http;
+//            return this;
+//        }
+
+
         public ConSysApiClientBuilder simpleAuth(String user, char[] password)
         {
             if (!Strings.isNullOrEmpty(user))
             {
-                var finalPwd = password != null ? password : new char[0];
-                httpClientBuilder.authenticator(new Authenticator() {
-                    @Override
-                    protected PasswordAuthentication getPasswordAuthentication() {
-                        return new PasswordAuthentication(user, finalPwd);
-                    }
+                final String finalPwd = password != null ? new String(password) : "";
+//                var finalPwd = password != null ? password : new char[0];
+                httpClientBuilder.authenticator((route, response) ->  {
+
+                    String credential = Credentials.basic(user, finalPwd);
+                    return response.request().newBuilder()
+                            .header(HttpHeaders.AUTHORIZATION, credential)
+                            .build();
+
+
+//                    @Override
+//                    protected PasswordAuthentication getPasswordAuthentication() {
+//                        return new PasswordAuthentication(user, finalPwd);
+//                    }
                 });
+                //erase password
+                Arrays.fill(password, '\0');
             }
 
             return this;
@@ -947,9 +1118,12 @@ public class ConSysApiClient
         public ConSysApiClient build()
         {
             if (instance.http == null)
+//                instance.http = httpClientBuilder.build();
                 instance.http = httpClientBuilder.build();
 
             return instance;
         }
+
+
     }
 }
