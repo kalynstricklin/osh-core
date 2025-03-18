@@ -1,6 +1,8 @@
 package org.sensorhub.impl.service.consys.client;
 
 import com.google.common.base.Strings;
+import com.google.common.net.HttpHeaders;
+
 import org.sensorhub.api.client.ClientException;
 import org.sensorhub.api.client.IClientModule;
 import org.sensorhub.api.common.BigId;
@@ -31,6 +33,11 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.CompletableFuture;
+
+import okhttp3.Credentials;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig> implements IClientModule<ConSysApiClientConfig> {
 
@@ -101,6 +108,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     @Override
     protected void doStart() throws SensorHubException {
         // Check if endpoint is available
+
         OkHttpClient client = new OkHttpClient.Builder().authenticator((route, response) -> {
             if (!Strings.isNullOrEmpty(config.conSys.user)) {
                 String credential = Credentials.basic(config.conSys.user, config.conSys.password != null ? config.conSys.password : "");
@@ -117,6 +125,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 .get()
                 .build();
 
+
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 throw new SensorHubException("Failed to establish connection: HTTP " + response.code());
@@ -125,12 +134,13 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             throw new SensorHubException("Unable to establish connection to Connected Systems endpoint", e);
         }
 
+
         reportStatus("Connection to " + apiEndpointUrl + " was made successfully");
 
         dataBaseView.getSystemDescStore().selectEntries(
-                new SystemFilter.Builder()
-                        .withNoParent()
-                        .build())
+                        new SystemFilter.Builder()
+                                .withNoParent()
+                                .build())
                 .forEach((entry) -> {
                     var systemRegInfo = registerSystem(entry.getKey().getInternalID(), entry.getValue());
                     checkSubSystems(systemRegInfo);
@@ -142,6 +152,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         for (var stream : dataStreams.values())
             startStream(stream);
     }
+
 
     @Override
     protected void doStop() throws SensorHubException {

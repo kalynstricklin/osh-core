@@ -1,16 +1,16 @@
 /***************************** BEGIN LICENSE BLOCK ***************************
 
-The contents of this file are subject to the Mozilla Public License, v. 2.0.
-If a copy of the MPL was not distributed with this file, You can obtain one
-at http://mozilla.org/MPL/2.0/.
+ The contents of this file are subject to the Mozilla Public License, v. 2.0.
+ If a copy of the MPL was not distributed with this file, You can obtain one
+ at http://mozilla.org/MPL/2.0/.
 
-Software distributed under the License is distributed on an "AS IS" basis,
-WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
-for the specific language governing rights and limitations under the License.
+ Software distributed under the License is distributed on an "AS IS" basis,
+ WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ for the specific language governing rights and limitations under the License.
 
-Copyright (C) 2023 Sensia Software LLC. All Rights Reserved.
+ Copyright (C) 2023 Sensia Software LLC. All Rights Reserved.
 
-******************************* END LICENSE BLOCK ***************************/
+ ******************************* END LICENSE BLOCK ***************************/
 
 package org.sensorhub.impl.service.consys.client;
 
@@ -41,6 +41,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import net.opengis.swe.v20.BinaryEncoding;
+
+import org.jetbrains.annotations.NotNull;
 import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStreamInfo;
@@ -77,6 +79,15 @@ import com.google.common.net.HttpHeaders;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.Credentials;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+
 
 public class ConSysApiClient
 {
@@ -91,18 +102,19 @@ public class ConSysApiClient
     static final String SF_COLLECTION = "fois";
 
     static final Logger log = LoggerFactory.getLogger(ConSysApiClient.class);
-    
-    HttpClient http;
+
+//    HttpClient http;
     URI endpoint;
 
+    OkHttpClient http;
 
     protected ConSysApiClient() {}
-    
-    
+
+
     /*------------*/
     /* Properties */
     /*------------*/
-    
+
     public CompletableFuture<IDerivedProperty> getPropertyById(String id, ResourceFormat format)
     {
         return sendGetRequest(endpoint.resolve(PROPERTIES_COLLECTION + "/" + id), format, body -> {
@@ -119,8 +131,8 @@ public class ConSysApiClient
             }
         });
     }
-    
-    
+
+
     public CompletableFuture<IDerivedProperty> getPropertyByUri(String uri, ResourceFormat format)
     {
         try
@@ -144,77 +156,77 @@ public class ConSysApiClient
             throw new IllegalArgumentException("Invalid property URI: " + uri);
         }
     }
-    
-    
+
+
     public CompletableFuture<String> addProperty(IDerivedProperty prop)
     {
         try
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new PropertyBindingJson(ctx, null, null, false);
             binding.serialize(null, prop, false);
-            
+
             return sendPostRequest(
-                endpoint.resolve(PROPERTIES_COLLECTION),
-                ResourceFormat.JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(PROPERTIES_COLLECTION),
+                    ResourceFormat.JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     public CompletableFuture<Set<String>> addProperties(IDerivedProperty... properties)
     {
         return addProperties(Arrays.asList(properties));
     }
-    
-    
+
+
     public CompletableFuture<Set<String>> addProperties(Collection<IDerivedProperty> properties)
     {
         try
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new PropertyBindingJson(ctx, null, null, false) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
                     writer.beginArray();
                 }
-                
+
                 protected void endJsonCollection(JsonWriter writer, Collection<ResourceLink> links) throws IOException
                 {
                     writer.endArray();
                     writer.flush();
                 }
             };
-            
+
             binding.startCollection();
             for (var prop: properties)
                 binding.serialize(null, prop, false);
             binding.endCollection(Collections.emptyList());
-            
+
             return sendBatchPostRequest(
-                endpoint.resolve(PROPERTIES_COLLECTION),
-                ResourceFormat.JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(PROPERTIES_COLLECTION),
+                    ResourceFormat.JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     /*------------*/
     /* Procedures */
     /*------------*/
-    
+
     public CompletableFuture<IProcedureWithDesc> getProcedureById(String id, ResourceFormat format)
     {
         return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "/" + id), format, body -> {
@@ -231,15 +243,15 @@ public class ConSysApiClient
             }
         });
     }
-    
-    
+
+
     public CompletableFuture<IProcedureWithDesc> getProcedureByUid(String uid, ResourceFormat format)
     {
         return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "?uid=" + uid), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
-                
+
                 // use modified binding since the response contains a feature collection
                 var binding = new ProcedureBindingGeoJson(ctx, null, null, true) {
                     public IProcedureWithDesc deserialize(JsonReader reader) throws IOException
@@ -248,7 +260,7 @@ public class ConSysApiClient
                         return super.deserialize(reader);
                     }
                 };
-                
+
                 return binding.deserialize();
             }
             catch (IOException e)
@@ -258,73 +270,73 @@ public class ConSysApiClient
             }
         });
     }
-    
-    
+
+
     public CompletableFuture<String> addProcedure(IProcedureWithDesc system)
     {
         try
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new ProcedureBindingSmlJson(ctx, null, false);
             binding.serialize(null, system, false);
-            
+
             return sendPostRequest(
-                endpoint.resolve(PROCEDURES_COLLECTION),
-                ResourceFormat.SML_JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(PROCEDURES_COLLECTION),
+                    ResourceFormat.SML_JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     public CompletableFuture<Set<String>> addProcedures(IProcedureWithDesc... systems)
     {
         return addProcedures(Arrays.asList(systems));
     }
-    
-    
+
+
     public CompletableFuture<Set<String>> addProcedures(Collection<IProcedureWithDesc> systems)
     {
         try
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new ProcedureBindingSmlJson(ctx, null, false) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
                     writer.beginArray();
                 }
-                
+
                 protected void endJsonCollection(JsonWriter writer, Collection<ResourceLink> links) throws IOException
                 {
                     writer.endArray();
                     writer.flush();
                 }
             };
-            
+
             binding.startCollection();
             for (var sys: systems)
                 binding.serialize(null, sys, false);
             binding.endCollection(Collections.emptyList());
-            
+
             return sendBatchPostRequest(
-                endpoint.resolve(PROCEDURES_COLLECTION),
-                ResourceFormat.SML_JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(PROCEDURES_COLLECTION),
+                    ResourceFormat.SML_JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     /*---------*/
     /* Systems */
     /*---------*/
@@ -352,7 +364,7 @@ public class ConSysApiClient
             try
             {
                 var ctx = new RequestContext(body);
-                
+
                 // use modified binding since the response contains a feature collection
                 var binding = new SystemBindingGeoJson(ctx, null, null, true) {
                     public ISystemWithDesc deserialize(JsonReader reader) throws IOException
@@ -361,7 +373,7 @@ public class ConSysApiClient
                         return super.deserialize(reader);
                     }
                 };
-                
+
                 return binding.deserialize();
             }
             catch (IOException e)
@@ -384,9 +396,9 @@ public class ConSysApiClient
             binding.serialize(null, system, false);
 
             return sendPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION),
-                ResourceFormat.SML_JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(SYSTEMS_COLLECTION),
+                    ResourceFormat.SML_JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
@@ -468,9 +480,9 @@ public class ConSysApiClient
             binding.endCollection(Collections.emptyList());
 
             return sendBatchPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION),
-                ResourceFormat.SML_JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(SYSTEMS_COLLECTION),
+                    ResourceFormat.SML_JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
@@ -498,25 +510,25 @@ public class ConSysApiClient
                 throw new CompletionException(e);
             }
         });
-        
+
         if (fetchSchema)
         {
             return cf1.thenCombine(getDatastreamSchema(id, ResourceFormat.JSON, ResourceFormat.JSON), (dsInfo, schemaInfo) -> {
-                
+
                 schemaInfo.getRecordStructure().setName(dsInfo.getOutputName());
-                
+
                 dsInfo = DataStreamInfo.Builder.from(dsInfo)
-                    .withRecordDescription(schemaInfo.getRecordStructure())
-                    .build();
-                
+                        .withRecordDescription(schemaInfo.getRecordStructure())
+                        .build();
+
                 return dsInfo;
             });
         }
         else
             return cf1;
-        
+
     }
-    
+
     public CompletableFuture<IDataStreamInfo> getDatastreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
         return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + id + "/schema?obsFormat="+obsFormat), format, body -> {
@@ -540,14 +552,14 @@ public class ConSysApiClient
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new DataStreamBindingJson(ctx, null, null, false, Collections.emptyMap());
             binding.serialize(null, datastream, false);
 
             return sendPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
-                ResourceFormat.JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
+                    ResourceFormat.JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
@@ -568,7 +580,7 @@ public class ConSysApiClient
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new DataStreamBindingJson(ctx, null, null, false, Collections.emptyMap()) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
@@ -588,9 +600,9 @@ public class ConSysApiClient
             binding.endCollection(Collections.emptyList());
 
             return sendBatchPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
-                ResourceFormat.JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
+                    ResourceFormat.JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
@@ -609,14 +621,14 @@ public class ConSysApiClient
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new CommandStreamBindingJson(ctx, null, null, false);
             binding.serializeCreate(cmdstream);
 
             return sendPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
-                ResourceFormat.JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
+                    ResourceFormat.JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
@@ -637,7 +649,7 @@ public class ConSysApiClient
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new CommandStreamBindingJson(ctx, null, null, false) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
@@ -657,9 +669,9 @@ public class ConSysApiClient
             binding.endCollection(Collections.emptyList());
 
             return sendBatchPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
-                ResourceFormat.JSON,
-                buffer.toByteArray());
+                    endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
+                    ResourceFormat.JSON,
+                    buffer.toByteArray());
         }
         catch (IOException e)
         {
@@ -766,24 +778,26 @@ public class ConSysApiClient
     {
         return null;
     }
-    
-    
-    
+
+
+
     /*----------------*/
     /* Helper Methods */
     /*----------------*/
 
-
+    //https://github.com/square/okhttp/blob/master/samples/guide/src/main/java/okhttp3/recipes/AsynchronousGet.java
     protected <T> CompletableFuture<T> sendGetRequest(URI collectionUri, ResourceFormat format, Function<InputStream, T> bodyMapper)
     {
+
         CompletableFuture<T> future = new CompletableFuture<>();
-        Request request = new Request.Builder()
+
+        var req = new Request.Builder()
                 .url(collectionUri.toString())
                 .get()
-                .addHeader("Accept", format.getMimeType())
+                .header(HttpHeaders.ACCEPT, format.getMimeType())
                 .build();
 
-        http.newCall(request).enqueue(new Callback() {
+        http.newCall(req).enqueue(new Callback() {
             @Override
             public void onFailure(@NotNull Call call, @NotNull IOException e) {
                 future.completeExceptionally(e);
@@ -791,7 +805,6 @@ public class ConSysApiClient
 
             @Override
             public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
-
                 if(response.isSuccessful() && response.body() != null){
                     byte[] responseBytes = response.body().bytes();
                     System.out.println(new String(responseBytes));
@@ -806,60 +819,20 @@ public class ConSysApiClient
         });
 
         return future;
-
-//        var req = HttpRequest.newBuilder()
-//            .uri(collectionUri)
-//            .GET()
-//            .header(HttpHeaders.ACCEPT, format.getMimeType())
-//            .build();
-//
-//        var bodyHandler = new HttpResponse.BodyHandler<T>() {
-//            @Override
-//            public HttpResponse.BodySubscriber<T> apply(HttpResponse.ResponseInfo resp)
-//            {
-//                //var upstream = BodySubscribers.ofInputStream();
-//                var upstream = HttpResponse.BodySubscribers.ofByteArray();
-//                return HttpResponse.BodySubscribers.mapping(upstream, body -> {
-//                    System.out.println(new String(body));
-//                    var is = new ByteArrayInputStream(body);
-//                    return bodyMapper.apply(is);
-//                });
-//            }
-//        };
-//
-//        return http.sendAsync(req, bodyHandler)
-//            .thenApply(resp ->  {
-//                if (resp.statusCode() == 200)
-//                    return resp.body();
-//                else
-//                    throw new CompletionException("HTTP error " + resp.statusCode(), null);
-//            });
     }
 
-
-    protected CompletableFuture<String> sendPostRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
+    protected CompletableFuture<String> sendPostRequest(URI collectionUri, ResourceFormat format, byte[] body)
     {
-
         CompletableFuture<String> future = new CompletableFuture<>();
 
-
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        try {
-            body.getAsInputStream().transferTo(outputStream);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        RequestBody requestBody = RequestBody.create(outputStream.toByteArray(), okhttp3.MediaType.parse(format.getMimeType()));
-//        RequestBody requestBody = RequestBody.create(body.getAsInputStream().readAllBytes(), format.getMimeType());
-
-        Request request = new Request.Builder()
+        var req = new Request.Builder()
                 .url(collectionUri.toString())
-                .post(requestBody)
+                .post(RequestBody.create(body))
                 .addHeader(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
                 .addHeader(HttpHeaders.CONTENT_TYPE, format.getMimeType())
                 .build();
 
-        http.newCall(request).enqueue(new Callback() {
+        http.newCall(req).enqueue(new Callback() {
             @Override
             public void onFailure(@NotNull Call call, @NotNull IOException e) {
                 future.completeExceptionally(e);
@@ -883,162 +856,100 @@ public class ConSysApiClient
         });
 
         return future;
-
-//        var req = HttpRequest.newBuilder()
-//            .uri(collectionUri)
-//            .POST(HttpRequest.BodyPublishers.ofInputStream(body::getAsInputStream))
-//            .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-//            .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-//            .build();
-//
-//        return http.sendAsync(req, BodyHandlers.ofString())
-//            .thenApply(resp ->  {
-//                if (resp.statusCode() == 201 || resp.statusCode() == 303)
-//                {
-//                    var location = resp.headers()
-//                        .firstValue(HttpHeaders.LOCATION)
-//                        .orElseThrow(() -> new IllegalStateException("Missing Location header in response"));
-//                    return location.substring(location.lastIndexOf('/')+1);
-//                }
-//                else
-//                    throw new CompletionException(resp.body(), null);
-//            });
     }
 
-    protected CompletableFuture<Integer> sendPutRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
+    protected CompletableFuture<Integer> sendPutRequest(URI collectionUri, ResourceFormat format, byte[] body)
     {
         CompletableFuture<Integer> future = new CompletableFuture<>();
 
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        try {
-            body.getAsInputStream().transferTo(outputStream);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        RequestBody requestBody = RequestBody.create(outputStream.toByteArray(), okhttp3.MediaType.parse(format.getMimeType()));
-//        RequestBody requestBody = RequestBody.create(MediaType.parse(format.getMimeType()), body.getAsInputStream().readAllBytes());
-
-        Request request = new Request.Builder()
+        Request req = new Request.Builder()
                 .url(collectionUri.toString())
-                .put(requestBody)
+                .put(RequestBody.create(body))
                 .addHeader(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
                 .addHeader(HttpHeaders.CONTENT_TYPE, format.getMimeType())
                 .build();
 
-        http.newCall(request).enqueue(new Callback() {
+        http.newCall(req).enqueue(new Callback() {
             @Override
             public void onFailure(@NotNull Call call, @NotNull IOException e) {
-                future.completeExceptionally(e);
+                e.printStackTrace();
             }
 
             @Override
-            public void onResponse(@NotNull Call call, @NotNull Response response) {
+            public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
                 future.complete(response.code());
                 response.close();
             }
         });
 
         return future;
-
-//        var req = HttpRequest.newBuilder()
-//                .uri(collectionUri)
-//                .PUT(HttpRequest.BodyPublishers.ofInputStream(() -> body.getAsInputStream()))
-//                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-//                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-//                .build();
-//
-//        return http.sendAsync(req, BodyHandlers.ofString())
-//                .thenApply(HttpResponse::statusCode);
     }
 
 
-    protected CompletableFuture<Set<String>> sendBatchPostRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
+    protected CompletableFuture<Set<String>> sendBatchPostRequest(URI collectionUri, ResourceFormat format, byte[] body)
     {
         CompletableFuture<Set<String>> future = new CompletableFuture<>();
 
 
-        //reformat body for post request by converting to bytearray
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        try {
-            body.getAsInputStream().transferTo(outputStream);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        RequestBody requestBody = RequestBody.create(outputStream.toByteArray(), okhttp3.MediaType.parse(format.getMimeType()));
-
-        Request request = new Request.Builder()
+        var req = new Request.Builder()
                 .url(collectionUri.toString())
-                .post(requestBody)
-                .addHeader(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+                .post(RequestBody.create(body))
                 .addHeader(HttpHeaders.CONTENT_TYPE, format.getMimeType())
                 .build();
 
-        http.newCall(request).enqueue(new Callback() {
+        http.newCall(req).enqueue(new Callback() {
             @Override
             public void onFailure(@NotNull Call call, @NotNull IOException e) {
-                future.completeExceptionally(e);
+                e.printStackTrace();
             }
 
             @Override
-            public void onResponse(@NotNull Call call, @NotNull Response response) {
+            public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
                 try (ResponseBody responseBody = response.body()) {
                     if (response.code() == 201 || response.code() == 303) {
                         Set<String> idList = new LinkedHashSet<>();
+                            if(responseBody != null){
+                                String responseString = responseBody.toString();
 
-                        if(responseBody != null){
-                            String responseString = responseBody.toString();
-
-                            try(JsonReader reader = new JsonReader(new StringReader(responseString)))
-                            {
-                                reader.beginArray();;
-                                while(reader.hasNext()){
-                                    var uri = reader.nextString();
-                                    idList.add(uri.substring(uri.lastIndexOf('/'+1)));
+                                try(JsonReader reader = new JsonReader(new StringReader(responseString)))
+                                {
+                                    reader.beginArray();;
+                                    while(reader.hasNext()){
+                                        var uri = reader.nextString();
+                                        idList.add(uri.substring(uri.lastIndexOf('/'+1)));
+                                    }
+                                    reader.endArray();
+                                }catch(IOException e){
+                                    future.completeExceptionally(e);
                                 }
-                                reader.endArray();
-                            }catch(IOException e){
-                                future.completeExceptionally(e);
                             }
-                        }
-                        future.complete(idList);
+                            future.complete(idList);
 
-                    } else {
-                        future.completeExceptionally(new CompletionException("HTTP Error: " + response.code() + " " + response.message(), null));
+                        } else {
+                            future.completeExceptionally(new CompletionException("HTTP Error: " + response.code() + " " + response.message(), null));
+                        }
                     }
                 }
-            }
-        });
+            });
 
         return future;
-
-
-//        var req = HttpRequest.newBuilder()
-//            .uri(collectionUri)
-//            .POST(HttpRequest.BodyPublishers.ofInputStream(() -> body.getAsInputStream()))
-//            .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-//            .build();
-//
-//        return http.sendAsync(req, BodyHandlers.ofString())
-//            .thenApply(Lambdas.checked(resp ->  {
-//                if (resp.statusCode() == 201 || resp.statusCode() == 303)
-//                {
-//                    var idList = new LinkedHashSet<String>();
-//                    try (JsonReader reader = new JsonReader(new StringReader(resp.body())))
-//                    {
-//                        reader.beginArray();
-//                        while (reader.hasNext())
-//                        {
-//                            var uri = reader.nextString();
-//                            idList.add(uri.substring(uri.lastIndexOf('/')+1));
-//                        }
-//                        reader.endArray();
-//                    }
-//                    return idList;
-//                }
-//                else
-//                    throw new ResourceParseException(resp.body());
-//            }));
     }
+
+
+    protected void skipToCollectionItems(JsonReader reader) throws IOException
+    {
+        // skip to array of collection items
+        reader.beginObject();
+        while (reader.hasNext())
+        {
+            var name = reader.nextName();
+            if ("items".equals(name) || "features".equals(name))
+                break;
+            else
+                reader.skipValue();
+        }
+    }
+
 
 
     /* Builder stuff */
@@ -1052,14 +963,13 @@ public class ConSysApiClient
 
     public static class ConSysApiClientBuilder extends BaseBuilder<ConSysApiClient>
     {
-        //        HttpClient.Builder httpClientBuilder;
-        OkHttpClient.Builder httpClientBuilder;
+//        HttpClient.Builder httpClientBuilder;
 
+        OkHttpClient.Builder httpClientBuilder;
 
         ConSysApiClientBuilder(String endpoint)
         {
             this.instance = new ConSysApiClient();
-//            this.httpClientBuilder = HttpClient.newBuilder();
             this.httpClientBuilder = new OkHttpClient.Builder();
 
             try
@@ -1074,6 +984,7 @@ public class ConSysApiClient
             }
         }
 
+
         public ConSysApiClientBuilder useHttpClient(OkHttpClient http)
         {
             instance.http = http;
@@ -1081,33 +992,19 @@ public class ConSysApiClient
         }
 
 
-//        public ConSysApiClientBuilder useHttpClient(HttpClient http)
-//        {
-//            instance.http = http;
-//            return this;
-//        }
-
-
         public ConSysApiClientBuilder simpleAuth(String user, char[] password)
         {
             if (!Strings.isNullOrEmpty(user))
             {
                 final String finalPwd = password != null ? new String(password) : "";
-//                var finalPwd = password != null ? password : new char[0];
+
                 httpClientBuilder.authenticator((route, response) ->  {
 
                     String credential = Credentials.basic(user, finalPwd);
                     return response.request().newBuilder()
                             .header(HttpHeaders.AUTHORIZATION, credential)
                             .build();
-
-
-//                    @Override
-//                    protected PasswordAuthentication getPasswordAuthentication() {
-//                        return new PasswordAuthentication(user, finalPwd);
-//                    }
                 });
-                //erase password
                 Arrays.fill(password, '\0');
             }
 
@@ -1118,12 +1015,9 @@ public class ConSysApiClient
         public ConSysApiClient build()
         {
             if (instance.http == null)
-//                instance.http = httpClientBuilder.build();
                 instance.http = httpClientBuilder.build();
 
             return instance;
         }
-
-
     }
 }
