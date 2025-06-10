@@ -44,7 +44,7 @@ distributions {
         from 'sensorhub-core-osgi/lib'
         from {
           project.subprojects.collect {
-            p -> p.osgi.outputs
+            p -> p.osgi.outputsgit@github.com:kalynstricklin/osh-core.gitgit@github.com:kalynstricklin/osh-core.git
           }
         }
       }
