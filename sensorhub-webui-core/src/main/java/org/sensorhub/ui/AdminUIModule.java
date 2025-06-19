@@ -19,9 +19,14 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.LogManager;
+
+import net.opengis.sensorml.v20.PhysicalSystem;
 import org.sensorhub.api.comm.CommProviderConfig;
 import org.sensorhub.api.comm.NetworkConfig;
+import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.common.SensorHubException;
+import org.sensorhub.api.data.DataStreamInfo;
+import org.sensorhub.api.data.ObsData;
 import org.sensorhub.api.database.DatabaseConfig;
 import org.sensorhub.api.datastore.command.CommandFilter;
 import org.sensorhub.api.datastore.command.CommandStreamFilter;
@@ -45,6 +50,8 @@ import org.sensorhub.ui.api.IModuleConfigForm;
 import org.sensorhub.ui.filter.DatabaseFilterConfigForm;
 import org.sensorhub.ui.filter.DatabaseViewConfigForm;
 import com.vaadin.server.VaadinServlet;
+//import org.sensorhub.ui.resources.DatabaseResourceConfigForm;
+import org.sensorhub.ui.resources.ResourceViewConfigForm;
 
 
 public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> implements IEventListener
@@ -87,13 +94,22 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
             customForms.put(BasicSecurityRealmConfig.RoleConfig.class.getCanonicalName(), BasicSecurityConfigForm.class);
             customForms.put(SOSServiceConfig.class.getCanonicalName(), SOSConfigForm.class);
             customForms.put(SPSServiceConfig.class.getCanonicalName(), SPSConfigForm.class);
+
             customForms.put(ObsSystemDatabaseViewConfig.class.getCanonicalName(), DatabaseViewConfigForm.class);
             customForms.put(SystemFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
             customForms.put(DataStreamFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
             customForms.put(CommandStreamFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
             customForms.put(ObsFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
             customForms.put(CommandFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
-            
+
+
+//            customForms.put(ObsSystemDatabaseViewConfig.class.getCanonicalName(), DatabaseViewConfigForm.class);
+//            customForms.put(DataStreamInfo.class.getCanonicalName(), DatabaseFilterConfigForm.class);
+//            customForms.put(DataStreamFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
+//            customForms.put(CommandStreamFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
+//            customForms.put(ObsFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
+//            customForms.put(CommandFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
+
             // custom form builders defined in config
             for (CustomUIConfig customForm: config.customForms)
             {

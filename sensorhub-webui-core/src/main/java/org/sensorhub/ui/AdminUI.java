@@ -119,7 +119,8 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
     private static final String STYLE_LOGO = "logo";
     private static final String PROP_STATE = "state";
     private static final String PROP_MODULE_OBJECT = "module";
-    
+
+
     transient Logger log;
     transient ISensorHub hub;
     transient AdminUIModule adminModule;
@@ -322,7 +323,7 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         header.setComponentAlignment(img, Alignment.MIDDLE_LEFT);
         
         // title
-        Label title = new Label("OpenKalynHub");
+        Label title = new Label("OpenSensorHub");
         //title.addStyleName(STYLE_H2);
         title.addStyleName(STYLE_LOGO);
         //title.setWidth(null);
@@ -342,7 +343,7 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
             {
                 String version = ModuleUtils.getModuleInfo(getClass()).getModuleVersion();
                 String buildNumber = ModuleUtils.getBuildNumber(getClass());
-                Window popup = new Window("<b>About OpenKalynHub</b>");
+                Window popup = new Window("<b>About OpenSensorHub</b>");
                 popup.setIcon(LOGO_ICON);
                 popup.setCaptionAsHtml(true);
                 popup.setModal(true);
