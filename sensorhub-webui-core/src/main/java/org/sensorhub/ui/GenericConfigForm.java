@@ -298,13 +298,16 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
         
         // disable edit (read only)
         if (propId.equals(PROP_ID) ||
-            propId.endsWith(PROP_MODULECLASS))
+            propId.endsWith(PROP_MODULECLASS) ||
+            propId.equals(PROP_DRIVER_VERSION))
             field.setReadOnly(true);
         
         // show these only for top level modules
         else if (propId.endsWith("." + PROP_ID) ||
                  propId.endsWith("." + PROP_AUTOSTART))
-            field.setVisible(false);        
+            field.setVisible(false);
+
+
         
         // size depending on field type
         if (propType.equals(String.class))
