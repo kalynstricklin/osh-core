@@ -50,6 +50,7 @@ import org.eclipse.jetty.util.security.Constraint;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.xml.XmlConfiguration;
 import org.sensorhub.api.common.SensorHubException;
+import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.security.ISecurityManager;
 import org.sensorhub.api.service.IHttpServer;
@@ -301,19 +302,39 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
     protected void afterStart() throws SensorHubException {
         super.afterStart();
 
+        var modules = getParentHub().getModuleRegistry().getLoadedModules();
 
-        if(servletHandler != null){
-            ErrorPageErrorHandler errorHandler = new ErrorPageErrorHandler();
-            errorHandler.addErrorPage(400, "/error/invalid");
-            errorHandler.addErrorPage(403, "/error/forbidden");
-            errorHandler.addErrorPage(404, "/error/notfound");
+        for(var module : modules){
+            System.out.println(module.getClass().getSimpleName());
 
-            servletHandler.setErrorHandler(errorHandler);
+            if(!module.getClass().getSimpleName().equals("AdminUIModule")){
+              continue;
+            }
+            var config = module.getConfiguration();
+            boolean landingServiceEnabled = false;
+            try {
+                var field = config.getClass().getDeclaredField("enableLandingPage");
 
-        }else{
-            getLogger().warn("Servlet Handler is not initialized, cannot create error pages");
+                field.setAccessible(true);
+                landingServiceEnabled = (boolean) field.get(config);
+
+            } catch (NoSuchFieldException e) {
+                throw new RuntimeException(e);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+
+            if(landingServiceEnabled){
+                if(servletHandler != null){
+                    ErrorPageErrorHandler errorHandler = new ErrorPageErrorHandler();
+                    errorHandler.addErrorPage(400, "/error/invalid");
+                    errorHandler.addErrorPage(403, "/error/forbidden");
+                    errorHandler.addErrorPage(404, "/error/notfound");
+
+                    servletHandler.setErrorHandler(errorHandler);
+                }
+            }
         }
-
     }
 
     @Override
@@ -334,8 +355,8 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             throw new SensorHubException("Error while stopping SensorHub embedded HTTP server", e);
         }
     }
-    
-    
+
+
     protected void checkStarted()
     {
         if (!isStarted())
