@@ -295,7 +295,26 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             throw new SensorHubException("Cannot start embedded HTTP server", e);
         }
     }
-    
+
+    //TODO: figure out a way to remove this and still have my landing service work
+    @Override
+    protected void afterStart() throws SensorHubException {
+        super.afterStart();
+
+
+        if(servletHandler != null){
+            ErrorPageErrorHandler errorHandler = new ErrorPageErrorHandler();
+            errorHandler.addErrorPage(400, "/error/invalid");
+            errorHandler.addErrorPage(403, "/error/forbidden");
+            errorHandler.addErrorPage(404, "/error/notfound");
+
+            servletHandler.setErrorHandler(errorHandler);
+
+        }else{
+            getLogger().warn("Servlet Handler is not initialized, cannot create error pages");
+        }
+
+    }
 
     @Override
     protected synchronized void doStop() throws SensorHubException
