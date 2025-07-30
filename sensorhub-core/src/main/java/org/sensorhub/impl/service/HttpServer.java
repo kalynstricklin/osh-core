@@ -296,8 +296,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             throw new SensorHubException("Cannot start embedded HTTP server", e);
         }
     }
-
-    //TODO: figure out a way to remove this and still have my landing service work
+    
     @Override
     protected void afterStart() throws SensorHubException {
         super.afterStart();
