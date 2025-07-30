@@ -164,6 +164,8 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
 
         Map<String, String> initLandingParams = new HashMap<>();
         initLandingParams.put(SERVLET_PARAM_UI_CLASS, LandingUI.class.getCanonicalName());
+        if (config.widgetSet != null)
+            initLandingParams.put(WIDGETSET, config.widgetSet);
         initLandingParams.put("productionMode", "true");  // set to false to compile theme on-the-fly
         initLandingParams.put("heartbeatInterval", Integer.toString(HEARTBEAT_INTERVAL));
 

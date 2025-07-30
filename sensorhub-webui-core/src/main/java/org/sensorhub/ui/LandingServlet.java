@@ -103,7 +103,7 @@ public class LandingServlet extends VaadinServlet {
         log.debug("Verifying permissions for "+ path);
 
         if (path.equals("/sensorhub/sos") && request.getQueryString() == null) {
-            log.debug("Blocked direct access to /sensorhub/sos with no query parameters.");
+            log.warn("Blocked direct access to /sensorhub/sos with no query parameters.");
             return false;
         }
 
@@ -112,6 +112,7 @@ public class LandingServlet extends VaadinServlet {
 
         for (IPermission permission : permissions) {
             log.debug("Evaluating permission for URI {} with permission {}", path, permission.getName());
+
 
             if ((path.equals("/sensorhub/admin") || path.equals("/sensorhub/admin/")) && permission.getName().contains("webadmin")) {
                 return checkPermission(permission);
