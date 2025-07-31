@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.logging.LogManager;
 
 import com.vaadin.server.VaadinServlet;
+import org.eclipse.jetty.servlet.ErrorPageErrorHandler;
 import org.sensorhub.api.comm.CommProviderConfig;
 import org.sensorhub.api.comm.NetworkConfig;
 import org.sensorhub.api.common.SensorHubException;
@@ -41,6 +42,7 @@ import org.sensorhub.impl.database.system.SystemDriverDatabaseConfig;
 import org.sensorhub.impl.datastore.view.ObsSystemDatabaseViewConfig;
 import org.sensorhub.impl.security.BasicSecurityRealmConfig;
 import org.sensorhub.impl.service.AbstractHttpServiceModule;
+import org.sensorhub.impl.service.HttpServer;
 import org.sensorhub.impl.service.HttpServerConfig;
 import org.sensorhub.impl.service.sos.SOSServiceConfig;
 import org.sensorhub.impl.service.sps.SPSServiceConfig;
@@ -186,6 +188,15 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
             adminUIServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
             landingServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
             httpServer.addServletSecurity("/*", true);
+
+            var server = getParentHub().getModuleRegistry().getModuleByType(HttpServer.class);
+
+            ErrorPageErrorHandler errorHandler = new ErrorPageErrorHandler();
+            errorHandler.addErrorPage(400, "/error/invalid");
+            errorHandler.addErrorPage(403, "/error/forbidden");
+            errorHandler.addErrorPage(404, "/error/notfound");
+
+            server.getServletHandler().setErrorHandler(errorHandler);
         }
         else {
             httpServer.deployServlet(adminUIServlet, initParams, "/admin/*", "/VAADIN/*");

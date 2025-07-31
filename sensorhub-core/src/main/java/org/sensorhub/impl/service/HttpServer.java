@@ -298,45 +298,6 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
     }
     
     @Override
-    protected void afterStart() throws SensorHubException {
-        super.afterStart();
-
-        var modules = getParentHub().getModuleRegistry().getLoadedModules();
-
-        for(var module : modules){
-            System.out.println(module.getClass().getSimpleName());
-
-            if(!module.getClass().getSimpleName().equals("AdminUIModule")){
-              continue;
-            }
-            var config = module.getConfiguration();
-            boolean landingServiceEnabled = false;
-            try {
-                var field = config.getClass().getDeclaredField("enableLandingPage");
-
-                field.setAccessible(true);
-                landingServiceEnabled = (boolean) field.get(config);
-
-            } catch (NoSuchFieldException e) {
-                throw new RuntimeException(e);
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-
-            if(landingServiceEnabled){
-                if(servletHandler != null){
-                    ErrorPageErrorHandler errorHandler = new ErrorPageErrorHandler();
-                    errorHandler.addErrorPage(400, "/error/invalid");
-                    errorHandler.addErrorPage(403, "/error/forbidden");
-                    errorHandler.addErrorPage(404, "/error/notfound");
-
-                    servletHandler.setErrorHandler(errorHandler);
-                }
-            }
-        }
-    }
-
-    @Override
     protected synchronized void doStop() throws SensorHubException
     {
         try
@@ -572,5 +533,9 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
     public boolean isAuthEnabled()
     {
         return config.authMethod != AuthMethod.NONE;
+    }
+
+    public ServletContextHandler getServletHandler() {
+        return servletHandler;
     }
 }
