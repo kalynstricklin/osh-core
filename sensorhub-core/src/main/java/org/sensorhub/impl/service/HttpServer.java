@@ -1,16 +1,16 @@
 /***************************** BEGIN LICENSE BLOCK ***************************
 
-The contents of this file are subject to the Mozilla Public License, v. 2.0.
-If a copy of the MPL was not distributed with this file, You can obtain one
-at http://mozilla.org/MPL/2.0/.
+ The contents of this file are subject to the Mozilla Public License, v. 2.0.
+ If a copy of the MPL was not distributed with this file, You can obtain one
+ at http://mozilla.org/MPL/2.0/.
 
-Software distributed under the License is distributed on an "AS IS" basis,
-WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
-for the specific language governing rights and limitations under the License.
- 
-Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
- 
-******************************* END LICENSE BLOCK ***************************/
+ Software distributed under the License is distributed on an "AS IS" basis,
+ WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ for the specific language governing rights and limitations under the License.
+
+ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
+
+ ******************************* END LICENSE BLOCK ***************************/
 
 package org.sensorhub.impl.service;
 
@@ -50,7 +50,6 @@ import org.eclipse.jetty.util.security.Constraint;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.xml.XmlConfiguration;
 import org.sensorhub.api.common.SensorHubException;
-import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.security.ISecurityManager;
 import org.sensorhub.api.service.IHttpServer;
@@ -78,24 +77,24 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
     private static final String OSH_HTTPS_CONNECTOR_ID = "osh-https";
     private static final String OSH_STATIC_CONTENT_ID = "osh-static";
     private static final String OSH_SERVLET_HANDLER_ID = "osh-servlets";
-    
+
     private static final String[] SECURITY_EXCLUDED_METHODS = {"OPTIONS"};
     private static final String CORS_ALLOWED_METHODS = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
     private static final String CORS_ALLOWED_HEADERS = "origin, content-type, accept, authorization";
     private static final String CORS_EXPOSE_HEADERS = "location, link";
-    
+
     public static final String TEST_MSG = "SensorHub web server is up";
-        
+
     Server server;
     ServletContextHandler servletHandler;
     ConstraintSecurityHandler jettySecurityHandler;
-    
-    
+
+
     public HttpServer()
     {
     }
 
-    
+
     @Override
     public synchronized void updateConfig(HttpServerConfig config) throws SensorHubException
     {
@@ -105,7 +104,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             reportError("Cannot enable authentication if no user registry is setup", null);
             return;
         }
-        
+
         super.updateConfig(config);
     }
 
@@ -119,7 +118,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             ServerConnector http = null;
             ServerConnector https = null;
             HandlerList handlers = new HandlerList();
-            
+
             // HTTP connector
             HttpConfiguration httpConfig = new HttpConfiguration();
             httpConfig.setSendServerVersion(false);
@@ -133,12 +132,12 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 http.setIdleTimeout(300000);
                 server.addConnector(http);
             }
-            
+
             // HTTPS connector
             if (config.httpsPort > 0)
             {
                 KeyStoreInfo keyStoreInfo = getKeyStoreInfo(config);
-                
+
                 SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
                 sslContextFactory.setKeyStorePath(new File(keyStoreInfo.getKeyStorePath()).getAbsolutePath());
                 sslContextFactory.setKeyStorePassword(keyStoreInfo.getKeyStorePassword());
@@ -154,21 +153,21 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
                 httpsConfig.setSendServerVersion(false);
                 httpsConfig.addCustomizer(new SecureRequestCustomizer());
-                https = new ServerConnector(server, 
+                https = new ServerConnector(server,
                         new SslConnectionFactory(sslContextFactory, HttpVersion.HTTP_1_1.asString()),
                         new HttpConnectionFactory(httpsConfig));
                 https.setPort(config.httpsPort);
                 https.setIdleTimeout(300000);
                 server.addConnector(https);
             }
-            
+
             // static content
             ContextHandler fileResourceContext = null;
             if (config.staticDocsRootUrl != null)
             {
                 ResourceHandler fileResourceHandler = new ResourceHandler();
                 fileResourceHandler.setEtags(true);
-                
+
                 fileResourceContext = new ContextHandler();
                 fileResourceContext.setContextPath(config.staticDocsRootUrl);
                 //fileResourceContext.setAllowNullPathInfo(true);
@@ -177,11 +176,11 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
 
                 //fileResourceContext.clearAliasChecks();
                 //fileResourceContext.addAliasCheck(new SymlinkAllowedResourceAliasChecker(fileResourceContext));
-                
+
                 handlers.addHandler(fileResourceContext);
                 getLogger().info("Static resources root is " + config.staticDocsRootUrl);
             }
-            
+
             // servlets
             if (config.servletsRootUrl != null)
             {
@@ -190,16 +189,16 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 servletHandler.setContextPath(config.servletsRootUrl);
                 handlers.addHandler(servletHandler);
                 getLogger().info("Servlets root is " + config.servletsRootUrl);
-                
+
                 // security handler
                 if (config.authMethod != null && config.authMethod != AuthMethod.NONE)
                 {
                     jettySecurityHandler = new ConstraintSecurityHandler();
-                    
+
                     // create login service connected to OSH security manager
                     ISecurityManager securityManager = getParentHub().getSecurityManager();
                     OshLoginService loginService = new OshLoginService(securityManager);
-                    
+
                     if (config.authMethod == AuthMethod.BASIC)
                         jettySecurityHandler.setAuthenticator(new HttpLogoutWrapper(new BasicAuthenticator(), getLogger()));
                     else if (config.authMethod == AuthMethod.DIGEST)
@@ -213,11 +212,11 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                             throw new IllegalStateException("External authentication method was selected but no authenticator implementation is available");
                         jettySecurityHandler.setAuthenticator(authenticator);
                     }
-                    
+
                     jettySecurityHandler.setLoginService(loginService);
                     servletHandler.setSecurityHandler(jettySecurityHandler);
                 }
-                
+
                 // filter to add proper cross-origin headers
                 if (config.enableCORS)
                 {
@@ -226,7 +225,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                     holder.setInitParameter("allowedHeaders", CORS_ALLOWED_HEADERS);
                     holder.setInitParameter("exposedHeaders", CORS_EXPOSE_HEADERS);
                 }
-                
+
                 // add default test servlet
                 servletHandler.addServlet(new ServletHolder(new HttpServlet() {
                     private static final long serialVersionUID = 1L;
@@ -253,9 +252,9 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 }),"/test");
                 addServletSecurity("/test", false);
             }
-            
+
             server.setHandler(handlers);
-            
+
             // also load external xml config file if any
             if (config.xmlConfigFile != null)
             {
@@ -263,7 +262,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 {
                     Resource configFile = Resource.newResource(new File(config.xmlConfigFile));
                     XmlConfiguration xmlConfig = new XmlConfiguration(configFile);
-                    
+
                     // assign IDs to existing beans so they can be reconfigured
                     xmlConfig.getIdMap().put(OSH_SERVER_ID, server);
                     xmlConfig.getIdMap().put(OSH_HANDLERS, handlers);
@@ -275,7 +274,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                         xmlConfig.getIdMap().put(OSH_STATIC_CONTENT_ID, fileResourceContext);
                     if (servletHandler != null)
                         xmlConfig.getIdMap().put(OSH_SERVLET_HANDLER_ID, servletHandler);
-                    
+
                     // append xml config
                     xmlConfig.configure();
                 }
@@ -283,11 +282,11 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 {
                     throw new IOException("Cannot configure Jetty using external XML file", e);
                 }
-            }            
-            
+            }
+
             server.start();
             getLogger().info("HTTP server started on port " + config.httpPort);
-            
+
             server.getErrorHandler().setShowServlet(false);
             setState(ModuleState.STARTED);
         }
@@ -296,7 +295,8 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             throw new SensorHubException("Cannot start embedded HTTP server", e);
         }
     }
-    
+
+
     @Override
     protected synchronized void doStop() throws SensorHubException
     {
@@ -322,43 +322,43 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
         if (!isStarted())
             throw new IllegalStateException("HTTP service must be started before servlets can be deployed");
     }
-    
-    
+
+
     public void deployServlet(HttpServlet servlet, String path)
     {
         deployServlet(servlet, null, path);
     }
-    
-    
+
+
     public synchronized void deployServlet(HttpServlet servlet, Map<String, String> initParams, String... paths)
     {
         checkStarted();
-        
+
         ServletHolder holder = new ServletHolder(servlet);
         if (initParams != null)
             holder.setInitParameters(initParams);
-        
+
         ServletMapping mapping = new ServletMapping();
         mapping.setServletName(holder.getName());
         mapping.setPathSpecs(paths);
-        
+
         servletHandler.getServletHandler().addServlet(holder);
         servletHandler.getServletHandler().addServletMapping(mapping);
         getLogger().debug("Servlet deployed " + mapping.toString());
     }
-    
-    
+
+
     public synchronized void undeployServlet(HttpServlet servlet)
     {
         // silently do nothing if server has already been shutdown
         if (servletHandler == null)
             return;
-        
+
         try
         {
             // there is no removeServlet method so we need to do it manually
             ServletHandler handler = servletHandler.getServletHandler();
-            
+
             // first collect servlets we want to keep
             List<ServletHolder> servlets = new ArrayList<ServletHolder>();
             String nameToRemove = null;
@@ -372,7 +372,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
 
             if (nameToRemove == null)
                 return;
-            
+
             // also update servlet path mappings
             List<ServletMapping> mappings = new ArrayList<ServletMapping>();
             for (ServletMapping mapping : handler.getServletMappings())
@@ -390,14 +390,14 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             getLogger().error("Error while undeploying servlet", e);
         }
     }
-    
-    
+
+
     public void addServletSecurity(String pathSpec, boolean requireAuth)
     {
         addServletSecurity(pathSpec, requireAuth, Constraint.ANY_AUTH);
     }
-    
-    
+
+
     public synchronized void addServletSecurity(String pathSpec, boolean requireAuth, String... roles)
     {
         if (jettySecurityHandler != null)
@@ -423,119 +423,115 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             baseUrl = "http://localhost" + (config.httpPort != 80 ? ":" + config.httpPort : "");
         else if (config.httpsPort > 0)
             baseUrl = "https://localhost" + (config.httpsPort != 443 ? ":" + config.httpsPort : "");
-        
+
         return baseUrl;
     }
-    
-    
+
+
     public String getServletsBaseUrl()
     {
         var baseUrl = getServerBaseUrl();
-        
+
         if (config.servletsRootUrl != null)
             baseUrl = appendToUrlPath(baseUrl, config.servletsRootUrl);
-        
+
         return appendToUrlPath(baseUrl, "");
     }
-    
-    
+
+
     public String getPublicEndpointUrl(String path)
     {
         return appendToUrlPath(getServletsBaseUrl(), path);
     }
-    
-    
+
+
     private String appendToUrlPath(String url, String nextPart)
     {
         if (url.endsWith("/"))
             url = url.substring(0, url.length()-1);
-        
+
         return url + (nextPart.startsWith("/") ? nextPart : "/" + nextPart);
     }
-    
-    
+
+
     public Server getJettyServer()
     {
         return server;
     }
-    
+
     private static KeyStoreInfo getKeyStoreInfo(HttpServerConfig config) {
-    	String keyStorePath = ModuleUtils.expand(config.keyStorePath);
-    	if ((keyStorePath == null) || (keyStorePath.length() == 0) || (keyStorePath.trim().length() == 0)) {
-    		keyStorePath = System.getProperty("javax.net.ssl.keyStore");
-    	}
-  		Asserts.checkNotNullOrBlank(keyStorePath, "Either the key store path or the \"javax.net.ssl.keyStore\" system property must be specified.");
-  		
-  		String keyStorePassword = ModuleUtils.expand(config.keyStorePassword);
-  		if ((keyStorePassword == null) || (keyStorePassword.length() == 0)) {
-  			keyStorePassword = System.getProperty("javax.net.ssl.keyStorePassword");
-  		}
-  		Asserts.checkNotNullOrEmpty(keyStorePassword, "Key store password must be supplied.");
-  		
-  		String keyAlias = ModuleUtils.expand(config.keyAlias);
-  		Asserts.checkNotNullOrEmpty(keyAlias, "Key alias must be supplied");
-  		
-  		return new KeyStoreInfo(keyStorePath, keyStorePassword, keyAlias);
+        String keyStorePath = ModuleUtils.expand(config.keyStorePath);
+        if ((keyStorePath == null) || (keyStorePath.length() == 0) || (keyStorePath.trim().length() == 0)) {
+            keyStorePath = System.getProperty("javax.net.ssl.keyStore");
+        }
+        Asserts.checkNotNullOrBlank(keyStorePath, "Either the key store path or the \"javax.net.ssl.keyStore\" system property must be specified.");
+
+        String keyStorePassword = ModuleUtils.expand(config.keyStorePassword);
+        if ((keyStorePassword == null) || (keyStorePassword.length() == 0)) {
+            keyStorePassword = System.getProperty("javax.net.ssl.keyStorePassword");
+        }
+        Asserts.checkNotNullOrEmpty(keyStorePassword, "Key store password must be supplied.");
+
+        String keyAlias = ModuleUtils.expand(config.keyAlias);
+        Asserts.checkNotNullOrEmpty(keyAlias, "Key alias must be supplied");
+
+        return new KeyStoreInfo(keyStorePath, keyStorePassword, keyAlias);
     }
-    
+
     private static TrustStoreInfo getTrustStoreInfo(HttpServerConfig config) {
-    	String trustStorePath = ModuleUtils.expand(config.trustStorePath);
-    	if ((trustStorePath == null) || (trustStorePath.length() == 0) || (trustStorePath.trim().length() == 0)) {
-    		trustStorePath = System.getProperty("javax.net.ssl.trustStore");
-    	}
-  		Asserts.checkNotNullOrBlank(trustStorePath, "Either the trust store path or the \"javax.net.ssl.trustStore\" system property must be specified.");
-  		
-  		String trustStorePassword = ModuleUtils.expand(config.trustStorePassword);
-  		if ((trustStorePassword == null) || (trustStorePassword.length() == 0)) {
-  			trustStorePassword = System.getProperty("javax.net.ssl.trustStorePassword");
-  		}
-  		Asserts.checkNotNullOrEmpty(trustStorePassword, "Trust store password must be supplied.");
-  		
-  		return new TrustStoreInfo(trustStorePath, trustStorePassword);
+        String trustStorePath = ModuleUtils.expand(config.trustStorePath);
+        if ((trustStorePath == null) || (trustStorePath.length() == 0) || (trustStorePath.trim().length() == 0)) {
+            trustStorePath = System.getProperty("javax.net.ssl.trustStore");
+        }
+        Asserts.checkNotNullOrBlank(trustStorePath, "Either the trust store path or the \"javax.net.ssl.trustStore\" system property must be specified.");
+
+        String trustStorePassword = ModuleUtils.expand(config.trustStorePassword);
+        if ((trustStorePassword == null) || (trustStorePassword.length() == 0)) {
+            trustStorePassword = System.getProperty("javax.net.ssl.trustStorePassword");
+        }
+        Asserts.checkNotNullOrEmpty(trustStorePassword, "Trust store password must be supplied.");
+
+        return new TrustStoreInfo(trustStorePath, trustStorePassword);
     }
-    
+
     private static class KeyStoreInfo {
-    	private final String keyStorePath;
-    	private final String keyStorePassword;
-    	private final String keyAlias;
-		public KeyStoreInfo(String keyStorePath, String keyStorePassword, String keyAlias) {
-			this.keyStorePath = keyStorePath;
-			this.keyStorePassword = keyStorePassword;
-			this.keyAlias = keyAlias;
-		}
-		public String getKeyStorePath() {
-			return keyStorePath;
-		}
-		public String getKeyStorePassword() {
-			return keyStorePassword;
-		}
-		public String getKeyAlias() {
-			return keyAlias;
-		}
+        private final String keyStorePath;
+        private final String keyStorePassword;
+        private final String keyAlias;
+        public KeyStoreInfo(String keyStorePath, String keyStorePassword, String keyAlias) {
+            this.keyStorePath = keyStorePath;
+            this.keyStorePassword = keyStorePassword;
+            this.keyAlias = keyAlias;
+        }
+        public String getKeyStorePath() {
+            return keyStorePath;
+        }
+        public String getKeyStorePassword() {
+            return keyStorePassword;
+        }
+        public String getKeyAlias() {
+            return keyAlias;
+        }
     }
 
     private static class TrustStoreInfo {
-    	private final String trustStorePath;
-    	private final String trustStorePassword;
-		public TrustStoreInfo(String trustStorePath, String trustStorePassword) {
-			this.trustStorePath = trustStorePath;
-			this.trustStorePassword = trustStorePassword;
-		}
-		public String getTrustStorePath() {
-			return trustStorePath;
-		}
-		public String getTrustStorePassword() {
-			return trustStorePassword;
-		}
+        private final String trustStorePath;
+        private final String trustStorePassword;
+        public TrustStoreInfo(String trustStorePath, String trustStorePassword) {
+            this.trustStorePath = trustStorePath;
+            this.trustStorePassword = trustStorePassword;
+        }
+        public String getTrustStorePath() {
+            return trustStorePath;
+        }
+        public String getTrustStorePassword() {
+            return trustStorePassword;
+        }
     }
 
     @Override
     public boolean isAuthEnabled()
     {
         return config.authMethod != AuthMethod.NONE;
-    }
-
-    public ServletContextHandler getServletHandler() {
-        return servletHandler;
     }
 }
