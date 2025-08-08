@@ -1098,7 +1098,10 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
             table.select(moduleID);
     }
     
-    
+    protected String getModuleVersion(IModule<?> module){
+        return ModuleUtils.getModuleInfo(module.getClass()).getModuleVersion();
+    }
+
     protected void selectModule(IModule<?> module, TreeTable table)
     {
         table.select(module.getLocalID());
