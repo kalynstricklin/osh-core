@@ -1060,7 +1060,8 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         Item newItem = table.addItem(moduleID);
         if (newItem == null) // in case module was already added
             return;
-        
+
+
         newItem.getItemProperty(PROP_NAME).setValue(module.getName());
         newItem.getItemProperty(PROP_STATE).setValue(module.getCurrentState());
         newItem.getItemProperty(PROP_MODULE_OBJECT).setValue(module);
@@ -1131,6 +1132,11 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         // get panel for this config object
         Class<?> configClass = beanItem.getBean().getClass();
         IModuleAdminPanel<IModule<?>> panel = adminModule.generatePanel(configClass);
+
+        Label moduleVersion = new Label("<b>Version: </b>" + getModuleVersion(module), ContentMode.HTML);
+
+        panel.addComponent(moduleVersion);
+
         panel.build(beanItem, module);
         
         // generate module admin panel
