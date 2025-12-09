@@ -268,13 +268,11 @@ public class ModuleUtils
         }
         catch (ClassNotFoundException e)
         {
-            // Logback not available at all, fall back to SLF4J default
             log.debug("Logback not available, using default SLF4J logger for module {}", moduleID);
             return LoggerFactory.getLogger(module.getClass().getCanonicalName() + ":" + instanceID);
         }
         catch (Exception e)
         {
-            // Any other reflection error, fall back gracefully
             log.warn("Could not configure module logger via reflection, using default", e);
             return LoggerFactory.getLogger(module.getClass().getCanonicalName() + ":" + instanceID);
         }
