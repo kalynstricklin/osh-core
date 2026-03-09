@@ -35,12 +35,15 @@ import org.sensorhub.api.system.SystemEnabledEvent;
 import org.sensorhub.api.system.SystemRemovedEvent;
 import org.sensorhub.api.system.SystemDisabledEvent;
 import org.sensorhub.api.system.SystemEvent;
+import org.sensorhub.impl.comm.RobustIPConnection;
 import org.sensorhub.impl.module.AbstractModule;
+import org.sensorhub.impl.module.RobustConnection;
 import org.sensorhub.impl.security.ClientAuth;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.vast.ogc.gml.IFeature;
 import org.vast.util.Asserts;
 
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,6 +61,8 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     Map<BigId, String> registeredFeatureIDs;
     NavigableMap<String, StreamInfo> dataStreams;
     Flow.Subscription registrySubscription;
+
+    RobustConnection connection;
 
     public static class SystemRegInfo
     {
@@ -118,41 +123,85 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     {
         this.dataBaseView = config.dataSourceSelector.getFilteredView(getParentHub());
         this.client = new ConSysApiClient(config);
+
+        this.connection = new RobustIPConnection(this, config.connection, "ConSysApi server") {
+            @Override
+            public boolean tryConnect() throws IOException {
+                try {
+                    // First check TCP connectivity
+                    if (!tryConnectTCP(config.conSys.remoteHost, config.conSys.remotePort))
+                        return false;
+
+                    // Then validate the API endpoint
+                    HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
+                    urlConnection.setConnectTimeout(connectConfig.connectTimeout);
+                    urlConnection.setReadTimeout(connectConfig.connectTimeout);
+                    if (!Strings.isNullOrEmpty(config.conSys.user))
+                        setAuth();
+                    urlConnection.connect();
+
+                    int responseCode = urlConnection.getResponseCode();
+                    if (responseCode != HttpURLConnection.HTTP_OK) {
+                        reportError("ConSysApi endpoint returned " + responseCode, null, true);
+                        return false;
+                    }
+
+                    return true;
+                } catch (Exception e) {
+                    reportError("Unable to establish connection to Connected Systems endpoint", e, true);
+                    return false;
+                }
+            }
+        };
     }
 
     @Override
     protected void doStart() throws SensorHubException {
         // Check if endpoint is available
-        try{
-            HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
-            if (!Strings.isNullOrEmpty(config.conSys.user))
-                setAuth();
-            urlConnection.connect();
-            Asserts.checkArgument(urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK);
-        } catch (Exception e) {
-            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint");
-        }
+//        try{
+//            HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
+//            if (!Strings.isNullOrEmpty(config.conSys.user))
+//                setAuth();
+//            urlConnection.connect();
+//            Asserts.checkArgument(urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK);
+//        } catch (Exception e) {
+//            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint");
+//        }
+//
+//        reportStatus("Connection to " + apiEndpointUrl + " was made successfully");
 
-        reportStatus("Connection to " + apiEndpointUrl + " was made successfully");
+        connection.updateConfig(config.connection);
 
-        dataBaseView.getSystemDescStore().selectEntries(
-                new SystemFilter.Builder()
-                        .withNoParent()
-                        .build())
-                .forEach((entry) -> {
-                    var systemRegInfo = registerSystem(entry.getKey().getInternalID(), entry.getValue());
-                    checkSubSystems(systemRegInfo);
-                    registerSystemDataStreams(systemRegInfo);
+        connection.waitForConnectionAsync()
+                .thenRun(() -> {
+                    reportStatus("Connected to ConSysApi endpoint " + apiEndpointUrl);
+
+                    dataBaseView.getSystemDescStore().selectEntries(
+                                    new SystemFilter.Builder()
+                                            .withNoParent()
+                                            .build())
+                            .forEach((entry) -> {
+                                var systemRegInfo = registerSystem(entry.getKey().getInternalID(), entry.getValue());
+                                checkSubSystems(systemRegInfo);
+                                registerSystemDataStreams(systemRegInfo);
+                            });
+
+                    dataBaseView.getFoiStore().selectEntries(
+                                    dataBaseView.getFoiStore().selectAllFilter())
+                            .forEach(entry -> registerSamplingFeature(entry.getKey(), entry.getValue()));
+
+                    subscribeToRegistryEvents();
+
+                    for (var stream : dataStreams.values()) {
+                        try {
+                            startStream(stream);
+                        } catch (ClientException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
                 });
 
-        dataBaseView.getFoiStore().selectEntries(
-                dataBaseView.getFoiStore().selectAllFilter())
-                .forEach(entry -> registerSamplingFeature(entry.getKey(), entry.getValue()));
 
-        subscribeToRegistryEvents();
-
-        for (var stream : dataStreams.values())
-            startStream(stream);
     }
 
     private void registerSamplingFeature(FeatureKey key, IFeature res) {
@@ -174,6 +223,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     @Override
     protected void doStop() throws SensorHubException {
         super.doStop();
+
+        if (connection != null)
+            connection.cancel();
 
         for(var stream : dataStreams.values())
             stopStream(stream);
@@ -478,7 +530,14 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                                         streamInfo.dataStreamID,
                                         streamInfo.dataStream,
                                         obs
-                                ));
+                                ).thenAccept(result -> {
+                                    streamInfo.lastEventTime = System.currentTimeMillis();
+                                    streamInfo.errorCount = 0;
+                                }).exceptionally(ex -> {
+                                    streamInfo.errorCount++;
+                                    getLogger().error("Error pushing initial observation", ex);
+                                    return null;
+                                }));
 
                         getLogger().info("Starting Connected Systems data push for stream {} with UID {} to Connected Systems endpoint {}",
                                 streamInfo.dataStreamID, streamInfo.sysUID, apiEndpointUrl);
@@ -501,25 +560,43 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     @Override
     public boolean isConnected()
     {
-        return false;
+        return connection.isConnected();
     }
 
     protected void handleEvent(final ObsEvent e, StreamInfo streamInfo)
     {
-        for(var obs : e.getObservations()) {
+        if (!connection.isConnected()) {
+            streamInfo.errorCount++;
+            return;
+        }
+
+        for (var obs : e.getObservations()) {
             String foiID = null;
             if (obs.hasFoi()) {
                 var registeredFoiID = registeredFeatureIDs.get(obs.getFoiID());
                 if (registeredFoiID != null)
                     foiID = registeredFoiID;
             }
+
             client.pushObs(
                     streamInfo.dataStreamID,
                     streamInfo.dataStream,
                     obs,
                     foiID
-            );
-            streamInfo.lastEventTime = e.getTimeStamp();
+            ).thenAccept(result -> {
+                streamInfo.lastEventTime = System.currentTimeMillis();
+                streamInfo.errorCount = 0;
+            }).exceptionally(ex -> {
+                streamInfo.errorCount++;
+                getLogger().error("Error pushing observation to {}: {}",
+                        streamInfo.dataStreamID, ex.getMessage());
+
+                if (streamInfo.errorCount >= 3) {
+                    getLogger().warn("Multiple push failures, triggering reconnection");
+                    connection.reconnect();
+                }
+                return null;
+            });
         }
     }
 
