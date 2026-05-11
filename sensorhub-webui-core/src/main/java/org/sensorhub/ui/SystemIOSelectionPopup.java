@@ -34,7 +34,7 @@ public class SystemIOSelectionPopup extends Window {
                 dataComponent = (DataComponent) event.getItem().getItemProperty(SystemIOList.PROP_STRUCT).getValue());
         layout.addComponent(ioTable);
 
-        Button okButton = new Button("OK");
+        Button okButton = new Button(I18N.get("ok1"));
         okButton.addStyleName(UIConstants.STYLE_SMALL);
         okButton.addClickListener( e -> {
             if (dataComponent == null)

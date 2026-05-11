@@ -105,7 +105,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
             addComponent(new Spacing());
             HorizontalLayout titleBar = new HorizontalLayout();
             titleBar.setSpacing(true);
-            Label sectionLabel = new Label("Process Inputs");
+            Label sectionLabel = new Label(I18N.get("processInputs1"));
             sectionLabel.addStyleName(STYLE_H3);
             sectionLabel.addStyleName(STYLE_COLORED);
             titleBar.addComponent(sectionLabel);
@@ -124,7 +124,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
             addComponent(new Spacing());
             HorizontalLayout titleBar = new HorizontalLayout();
             titleBar.setSpacing(true);
-            Label sectionLabel = new Label("Process Parameters");
+            Label sectionLabel = new Label(I18N.get("processParameters1"));
             sectionLabel.addStyleName(STYLE_H3);
             sectionLabel.addStyleName(STYLE_COLORED);
             titleBar.addComponent(sectionLabel);
@@ -520,7 +520,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                     source.addItems(possibleConnectionItems);
                     destination.addItems(possibleConnectionItems);
 
-                    Button okButton = new Button("OK");
+                    Button okButton = new Button(I18N.get("ok1"));
                     okButton.addClickListener(e -> {
                         addConnection(source.getValue().toString(), destination.getValue().toString());
                         popup.close();
@@ -848,7 +848,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
             TextField newFilePath = new TextField("SensorML File path");
             newFilePath.setWidth(100, Unit.PERCENTAGE);
 
-            Button okButton = new Button("OK");
+            Button okButton = new Button(I18N.get("ok1"));
             okButton.addClickListener(event -> {
                 smlPath.set(newFilePath.getValue());
 

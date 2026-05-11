@@ -42,7 +42,7 @@ public class SystemSelectionPopup extends Window
         layout.setMargin(true);
         
         // manual entry text box
-        TextField manualEntry = new TextField("Manual Entry");
+        TextField manualEntry = new TextField(I18N.get("manualEntry1"));
         manualEntry.setWidth(300, Unit.PIXELS);
         manualEntry.addStyleName(UIConstants.STYLE_SMALL);
         manualEntry.addValueChangeListener(new ValueChangeListener() {
@@ -73,7 +73,7 @@ public class SystemSelectionPopup extends Window
         layout.setComponentAlignment(buttons, Alignment.MIDDLE_CENTER);
         
         // add OK button
-        Button okButton = new Button("OK");
+        Button okButton = new Button(I18N.get("ok1"));
         okButton.addStyleName(UIConstants.STYLE_SMALL);
         okButton.addClickListener(new Button.ClickListener() {
             private static final long serialVersionUID = 1L;

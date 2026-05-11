@@ -99,8 +99,8 @@ public class BasicSecurityConfigForm extends GenericConfigForm
             HorizontalLayout layout = new HorizontalLayout();
             layout.setWidth(100.0f, Unit.PERCENTAGE);
             layout.setSpacing(true);
-            layout.setCaption("Permissions");
-            layout.setDescription("Allowed and denied permissions for users with this role");
+            layout.setCaption(I18N.get("permissions1"));
+            layout.setDescription(I18N.get("allowedAndDeniedPermissionsForUsersWithThisRole1"));
             
             // permission table
             buildTable(layout);

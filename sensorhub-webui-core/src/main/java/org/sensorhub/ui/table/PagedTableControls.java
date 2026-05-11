@@ -1,5 +1,6 @@
 package org.sensorhub.ui.table;
 
+import org.sensorhub.ui.I18N;
 import org.sensorhub.ui.api.UIConstants;
 import com.vaadin.shared.ui.ContentMode;
 import com.vaadin.ui.Alignment;
@@ -17,8 +18,7 @@ import com.vaadin.v7.ui.TextField;
 public class PagedTableControls extends HorizontalLayout {
 
     private ComboBox itemsPerPageSelect = new ComboBox();
-    private Label itemsPerPageLabel = new Label("Items per page:");
-    //private Label pageLabel = new Label("Page:&nbsp;", ContentMode.HTML);
+    private Label itemsPerPageLabel = new Label(I18N.get("itemsPerPage1"));    //private Label pageLabel = new Label("Page:&nbsp;", ContentMode.HTML);
     private Button btnFirst = new Button("<<");
     private Button btnPrevious = new Button("<");
     private Button btnNext = new Button(">");

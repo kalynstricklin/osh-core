@@ -138,6 +138,8 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
         String title = prop.getLabel();
         if (title == null)
             title = DisplayUtils.getPrettyName(propId);
+        else
+            title = I18N.get(title);
         
         build(title, prop.getDescription(), prop.getValue(), includeSubForms);
     }
@@ -201,6 +203,8 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
                             label = ((FieldProperty)prop).getLabel();
                         if (label == null)
                             label = DisplayUtils.getPrettyName((String)propId);
+                        else
+                            label = I18N.get(label);
                         
                         String desc = null;
                         if (prop instanceof FieldProperty)
@@ -441,7 +445,7 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
 
                 // select system button
                 Button selectBtn = new Button(FontAwesome.SEARCH);
-                selectBtn.setDescription("Lookup System");
+                selectBtn.setDescription(I18N.get("Lookup System"));
                 selectBtn.addStyleName(STYLE_QUIET);
                 layout.addComponent(selectBtn);
                 layout.setComponentAlignment(selectBtn, Alignment.MIDDLE_LEFT);
@@ -1143,9 +1147,8 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
             public void onTabClose(TabSheet tabsheet, Component tabContent)
             {
                 final Tab tab = tabs.getTab(tabContent);
-                
-                final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to delete " + tab.getCaption() + "?</br>All settings will be lost.");
-                popup.addCloseListener(new CloseListener() {
+
+                final ConfirmDialog popup = new ConfirmDialog(I18N.get("areYouSureYouWantToDelete0AllSettingsWillBeLost1", tab.getCaption()));                popup.addCloseListener(new CloseListener() {
                     private static final long serialVersionUID = 1L;
                     @Override
                     public void windowClose(CloseEvent e)
