@@ -26,6 +26,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.security.Authenticator;
@@ -44,6 +45,7 @@ import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.server.handler.ResourceHandler;
+import org.eclipse.jetty.server.session.SessionHandler;
 import org.eclipse.jetty.servlet.*;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.eclipse.jetty.util.resource.Resource;
@@ -188,6 +190,9 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 // create servlet handler
                 this.servletHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
                 servletHandler.setContextPath(config.servletsRootUrl);
+                // set session cookie path to "/" so the JSESSIONID cookie is sent
+                // for all paths, not just the servlet context path
+                servletHandler.getSessionHandler().getSessionCookieConfig().setPath("/");
                 handlers.addHandler(servletHandler);
                 getLogger().info("Servlets root is " + config.servletsRootUrl);
                 
@@ -225,6 +230,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                     holder.setInitParameter("allowedMethods", CORS_ALLOWED_METHODS);
                     holder.setInitParameter("allowedHeaders", CORS_ALLOWED_HEADERS);
                     holder.setInitParameter("exposedHeaders", CORS_EXPOSE_HEADERS);
+                    holder.setInitParameter("allowCredentials", "true");
                 }
                 
                 // add default test servlet
