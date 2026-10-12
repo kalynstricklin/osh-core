@@ -56,6 +56,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     String apiEndpointUrl;
     ConSysApiClient client;
     Map<String, SystemRegInfo> registeredSystems;
+    Map<BigId, DeploymentRegInfo> registeredDeployments;
     Map<BigId, String> registeredFeatureIDs;
     NavigableMap<String, StreamInfo> dataStreams;
     Flow.Subscription registrySubscription;
@@ -66,6 +67,13 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         private BigId internalID;
         private Flow.Subscription subscription;
         private ISystemWithDesc system;
+    }
+
+    public static class DeploymentRegInfo
+    {
+        private String deploymentID;
+        private BigId internalID;
+        private IDeploymentWithDesc deployment;
     }
 
     public static class StreamInfo
@@ -84,6 +92,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     public ConSysApiClientModule()
     {
         this.registeredSystems = new ConcurrentHashMap<>();
+        this.registeredDeployments = new ConcurrentHashMap<>();
         this.registeredFeatureIDs = new ConcurrentHashMap<>();
         this.dataStreams = new ConcurrentSkipListMap<>();
     }
@@ -244,6 +253,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             throw new RuntimeException(e);
         }
         return null;
+    }
+
+    private String tryUpdateDeployment(IDeploymentWithDesc deployment)
     }
 
     private String tryUpdateSamplingFeature(IFeature feature)
