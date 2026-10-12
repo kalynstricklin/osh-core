@@ -178,6 +178,10 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                     registerSystemDataStreams(systemRegInfo);
                 });
 
+
+        dataBaseView.getDeploymentStore().selectEntries(
+                dataBaseView.getDeploymentStore().selectAllFilter())
+                .forEach(entry -> registerDeployment(entry.getKey().getInternalID(), entry.getValue()));
         dataBaseView.getFoiStore().selectEntries(
                 dataBaseView.getFoiStore().selectAllFilter())
                 .forEach(entry -> registerSamplingFeature(entry.getKey(), entry.getValue()));
@@ -311,6 +315,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         }
     }
 
+    protected DeploymentRegInfo registerDeployment(BigId deploymentInternalID, IDeploymentWithDesc deployment) {
+    private DeploymentRegInfo registerDeploymentInfo(String deploymentID, BigId deploymentInternalID, IDeploymentWithDesc deployment) {
+    }
     protected void registerSamplingFeature(BigId featureInternalId, String systemId, IFeature feature)
     {
         try {
