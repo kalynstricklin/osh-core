@@ -92,7 +92,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
 {
     RobustConnection connection;
     IObsSystemDatabase dataBaseView;
-    SOSUtils sosUtils = new SOSUtils();  
+    protected SOSUtils sosUtils = new SOSUtils();
     String sosEndpointUrl;
     Subscription registrySub;
     Map<String, SystemRegInfo> registeredSystems;
