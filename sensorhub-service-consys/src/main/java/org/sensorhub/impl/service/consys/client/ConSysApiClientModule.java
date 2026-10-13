@@ -147,14 +147,10 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     @Override
     protected void doStart() throws SensorHubException {
         // Check if endpoint is available
-        try{
-            HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
-            if (!Strings.isNullOrEmpty(config.conSys.user))
-                setAuth();
-            urlConnection.connect();
-            Asserts.checkArgument(urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK);
+        try {
+            client.checkConnection().get();
         } catch (Exception e) {
-            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint");
+            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint", e);
         }
 
         reportStatus("Connection to " + apiEndpointUrl + " was made successfully");

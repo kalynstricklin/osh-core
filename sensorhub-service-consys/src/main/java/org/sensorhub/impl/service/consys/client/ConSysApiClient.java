@@ -1361,6 +1361,15 @@ public class ConSysApiClient
     /* Helper Methods */
     /*----------------*/
 
+    /**
+     * Verifies that the API endpoint is reachable using this client's configured
+     * HTTP implementation and authentication.
+     */
+    public CompletableFuture<Void> checkConnection()
+    {
+        return this.<Void>sendGetRequest(endpoint, ResourceFormat.JSON, body -> null);
+    }
+
     protected <T> CompletableFuture<T> sendGetRequest(URI collectionUri, ResourceFormat format, Function<InputStream, T> bodyMapper)
     {
         return httpAdapter.sendGetRequest(collectionUri, format, bodyMapper);
